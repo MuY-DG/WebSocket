@@ -28,7 +28,8 @@ public class WebSocketEventListener {
      */
     @EventListener
     public void handleWebSocketConnectListener(SessionConnectedEvent event) {
-        log.info("收到新的 WebSocket 连接");
+
+        log.info("收到新的 WebSocket 连接 {}",event);
     }
 
     /**

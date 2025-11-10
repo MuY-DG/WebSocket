@@ -41,7 +41,6 @@ package-lock.json
 
 # Build outputs
 dist/
-build/
 .rsbuild/
 # Logs
 logs/
@@ -61,4 +60,3 @@ coverage/
 
 # OS
 Thumbs.db
-.DS_Store
