@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket API 测试</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-top: 0;
+        }
+
+        .section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f5f5f5;
+            border-radius: 10px;
+        }
+
+        .section h2 {
+            color: #333;
+            margin-top: 0;
+        }
+
+        .form-group {
+            margin: 15px 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .response {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border-left: 4px solid #4caf50;
+            display: none;
+        }
+
+        .response.show {
+            display: block;
+        }
+
+        .response.error {
+            border-left-color: #f44336;
+        }
+
+        .response pre {
+            margin: 10px 0 0 0;
+            overflow-x: auto;
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🔔 WebSocket REST API 测试工具</h1>
+
+        <!-- 发送点对点通知 -->
+        <div class="section">
+            <h2>发送点对点通知</h2>
+            <div class="form-group">
+                <label>接收者用户名</label>
+                <input type="text" id="recipient" placeholder="例如: user1" value="user1">
+            </div>
+            <div class="form-group">
+                <label>通知类型</label>
+                <select id="notificationType">
+                    <option value="INFO">信息 (INFO)</option>
+                    <option value="SUCCESS">成功 (SUCCESS)</option>
+                    <option value="WARNING">警告 (WARNING)</option>
+                    <option value="ERROR">错误 (ERROR)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>标题</label>
+                <input type="text" id="title" placeholder="通知标题" value="系统通知">
+            </div>
+            <div class="form-group">
+                <label>内容</label>
+                <textarea id="message" placeholder="通知内容">这是一条测试通知消息！</textarea>
+            </div>
+            <button onclick="sendNotification()">发送通知</button>
+            <div id="sendResponse" class="response"></div>
+        </div>
+
+        <!-- 广播通知 -->
+        <div class="section">
+            <h2>📢 广播通知（发送给所有在线用户）</h2>
+            <div class="form-group">
+                <label>通知类型</label>
+                <select id="broadcastType">
+                    <option value="INFO">信息 (INFO)</option>
+                    <option value="SUCCESS">成功 (SUCCESS)</option>
+                    <option value="WARNING">警告 (WARNING)</option>
+                    <option value="ERROR">错误 (ERROR)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>标题</label>
+                <input type="text" id="broadcastTitle" placeholder="广播标题" value="系统通知">
+            </div>
+            <div class="form-group">
+                <label>内容</label>
+                <textarea id="broadcastMessage" placeholder="广播内容">这是一条系统通知！所有在线用户都会收到。</textarea>
+            </div>
+            <button onclick="broadcastNotification()">📣 广播通知</button>
+            <div id="broadcastResponse" class="response"></div>
+        </div>
+
+        <div class="section" style="background: #e3f2fd;">
+            <h2>📝 使用说明</h2>
+            <ol>
+                <li>确保后端服务已启动（默认端口 8080）</li>
+                <li>确保至少有一个用户在前端页面登录</li>
+                <li><strong>广播通知</strong>：所有在线用户都会收到通知</li>
+                <li><strong>点对点通知</strong>：只有指定的用户会收到（需要用户名准确）</li>
+            </ol>
+            <p><strong>提示：</strong>广播通知会发送给所有已登录的用户，无需指定接收者</p>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8080/api/notifications';
+
+        async function sendNotification() {
+            const recipient = document.getElementById('recipient').value;
+            const type = document.getElementById('notificationType').value;
+            const title = document.getElementById('title').value;
+            const message = document.getElementById('message').value;
+
+            const responseDiv = document.getElementById('sendResponse');
+
+            if (!recipient || !title || !message) {
+                showResponse(responseDiv, 'error', '请填写所有字段！');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/send`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        recipient: recipient,
+                        type: type,
+                        title: title,
+                        message: message
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    showResponse(responseDiv, 'success', '✅ 通知发送成功！', data);
+                } else {
+                    showResponse(responseDiv, 'error', `❌ 发送失败：${response.status} ${response.statusText}`);
+                }
+            } catch (error) {
+                showResponse(responseDiv, 'error', `❌ 网络错误：${error.message}`);
+            }
+        }
+
+        async function broadcastNotification() {
+            const type = document.getElementById('broadcastType').value;
+            const title = document.getElementById('broadcastTitle').value;
+            const message = document.getElementById('broadcastMessage').value;
+
+            const responseDiv = document.getElementById('broadcastResponse');
+
+            if (!title || !message) {
+                showResponse(responseDiv, 'error', '请填写所有字段！');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/broadcast`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        recipient: 'all', // 广播时 recipient 字段可以是任意值
+                        type: type,
+                        title: title,
+                        message: message
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    showResponse(responseDiv, 'success', '✅ 广播发送成功！', data);
+                } else {
+                    showResponse(responseDiv, 'error', `❌ 发送失败：${response.status} ${response.statusText}`);
+                }
+            } catch (error) {
+                showResponse(responseDiv, 'error', `❌ 网络错误：${error.message}`);
+            }
+        }
+
+        function showResponse(element, type, message, data = null) {
+            element.className = 'response show ' + type;
+            let html = `<strong>${message}</strong>`;
+            if (data) {
+                html += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            }
+            element.innerHTML = html;
+        }
+    </script>
+</body>
+
+</html>
